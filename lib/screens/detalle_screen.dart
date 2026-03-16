@@ -18,24 +18,27 @@ class DetalleScreen extends StatelessWidget {
   Future<void> _abrirWhatsApp(String telefono) async {
     String numero = telefono.startsWith('51') ? telefono : '51$telefono';
     final Uri url = Uri.parse('https://wa.me/$numero');
-    if (await canLaunchUrl(url))
+    if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
   }
 
   Future<void> _abrirGoogleMaps(String coordenadas) async {
     final Uri url = Uri.parse(
       'http://googleusercontent.com/maps.google.com/?q=$coordenadas',
     );
-    if (await canLaunchUrl(url))
+    if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
   }
 
   Future<void> _abrirWaze(String coordenadas) async {
     final Uri url = Uri.parse(
       'https://waze.com/ul?ll=$coordenadas&navigate=yes',
     );
-    if (await canLaunchUrl(url))
+    if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
   }
 
   @override

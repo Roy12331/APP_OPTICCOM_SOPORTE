@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_messaging/firebase_messaging.dart'; // 🔹 NUEVO: Para obtener el Token del celular
+import 'package:http/http.dart' as http; // 🔹 NUEVO: Para enviar datos a PHP
+import 'dart:convert'; // 🔹 NUEVO: Para convertir los datos a formato JSON
+
 import '../services/login_service.dart';
 import '../core/app_theme.dart';
 import '../widgets/custom_button.dart';
@@ -41,6 +45,40 @@ class _LoginScreenState extends State<LoginScreen> {
         final String nombreUser = usuario['nombre'] ?? 'Usuario';
         final int idRol = int.tryParse(usuario['id_rol_fk'].toString()) ?? 3;
 
+        // =====================================================================
+        // 🔹 INICIO DEL BLOQUE FCM: Capturar y enviar Token a PHP
+        // =====================================================================
+        try {
+          String? token = await FirebaseMessaging.instance.getToken();
+          if (token != null && idUser > 0) {
+            // ⚠️ IMPORTANTE: CAMBIA ESTA URL.
+            // Si usas XAMPP/Laragon, pon la IP de tu PC (ej: 192.168.1.25)
+            // Si ya está en la nube, pon tu dominio (ej: https://tudominio.com)
+            // Si creaste la carpeta 'api' directamente, la ruta termina en .php
+            final url = Uri.parse(
+              'https://opticcomperu.com/api/actualizar_token.php',
+            );
+
+            print("🚀 Intentando enviar Token a: $url");
+
+            final response = await http.post(
+              url,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'id_usuario': idUser, 'fcm_token': token}),
+            );
+
+            print(
+              "📡 Código de respuesta del servidor: ${response.statusCode}",
+            );
+            print("📡 Respuesta del servidor: ${response.body}");
+          }
+        } catch (e) {
+          print("⚠️ Error CRÍTICO enviando token al servidor: $e");
+        }
+        // =====================================================================
+        // 🔹 FIN DEL BLOQUE FCM
+        // =====================================================================
+
         // 🔹 Leemos el Rol desde la BD
         String nombreRol = "Técnico";
         if (idRol == 1) nombreRol = "Administrador";
@@ -50,6 +88,14 @@ class _LoginScreenState extends State<LoginScreen> {
         context.go(
           '/home',
           extra: {'id': idUser, 'nombre': nombreUser, 'rol': nombreRol},
+        );
+      } else {
+        // Mostrar error si las credenciales son incorrectas
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Credenciales incorrectas"),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }

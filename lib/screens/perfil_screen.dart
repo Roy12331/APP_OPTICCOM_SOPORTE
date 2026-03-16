@@ -65,11 +65,12 @@ class PerfilScreen extends StatelessWidget {
                         final Uri url = Uri.parse(
                           'https://wa.me/51$numeroCentral',
                         );
-                        if (await canLaunchUrl(url))
+                        if (await canLaunchUrl(url)) {
                           await launchUrl(
                             url,
                             mode: LaunchMode.externalApplication,
                           );
+                        }
                         if (context.mounted) Navigator.pop(context);
                       },
                     ),
