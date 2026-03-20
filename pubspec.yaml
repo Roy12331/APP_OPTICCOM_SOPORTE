@@ -23,6 +23,7 @@ dependencies:
   lucide_icons: ^0.257.0
   firebase_core: ^4.5.0
   firebase_messaging: ^16.1.2
+  shared_preferences: ^2.5.4
   
 dev_dependencies:
   flutter_test:

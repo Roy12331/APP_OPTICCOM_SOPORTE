@@ -9,33 +9,70 @@ class DetalleScreen extends StatelessWidget {
   final OrdenTrabajo orden;
   const DetalleScreen({super.key, required this.orden});
 
-  // 🔹 FUNCIONES DE ENLACE (URL LAUNCHER)
+  // 🔹 FUNCIONES DE ENLACE (URL LAUNCHER) MEJORADAS
+
   Future<void> _llamar(String telefono) async {
-    final Uri url = Uri.parse('tel:$telefono');
-    if (await canLaunchUrl(url)) await launchUrl(url);
+    final numeroLimpio = telefono.replaceAll(RegExp(r'\s+'), '');
+    final Uri url = Uri.parse('tel:$numeroLimpio');
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);
+    } else {
+      print(
+        "Error: No se puede abrir el marcador telefónico para $numeroLimpio",
+      );
+    }
   }
 
   Future<void> _abrirWhatsApp(String telefono) async {
-    String numero = telefono.startsWith('51') ? telefono : '51$telefono';
+    final numeroLimpio = telefono.replaceAll(RegExp(r'\s+'), '');
+    String numero = numeroLimpio.startsWith('51')
+        ? numeroLimpio
+        : '51$numeroLimpio';
     final Uri url = Uri.parse('https://wa.me/$numero');
+
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     }
   }
 
-  Future<void> _abrirGoogleMaps(String coordenadas) async {
-    final Uri url = Uri.parse(
-      'http://googleusercontent.com/maps.google.com/?q=$coordenadas',
-    );
+  Future<void> _abrirGoogleMaps(
+    String? coordenadas,
+    String direccion,
+    String distrito,
+  ) async {
+    Uri url;
+
+    // Si tienes un link (coordenadas) de Google Maps en la BD, lo usamos directo
+    if (coordenadas != null && coordenadas.startsWith('http')) {
+      url = Uri.parse(coordenadas);
+    } else {
+      // Si no hay link, usamos la calle + distrito para buscar en el mapa
+      final query = Uri.encodeComponent("$direccion, $distrito");
+      url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
+    }
+
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     }
   }
 
-  Future<void> _abrirWaze(String coordenadas) async {
-    final Uri url = Uri.parse(
-      'https://waze.com/ul?ll=$coordenadas&navigate=yes',
-    );
+  Future<void> _abrirWaze(
+    String? coordenadas,
+    String direccion,
+    String distrito,
+  ) async {
+    Uri url;
+
+    // A veces los links (coordenadas) de la BD son universales y abren Waze
+    if (coordenadas != null && coordenadas.contains('waze.com')) {
+      url = Uri.parse(coordenadas);
+    } else {
+      // Buscar por dirección literal
+      final query = Uri.encodeComponent("$direccion, $distrito");
+      url = Uri.parse('https://waze.com/ul?q=$query&navigate=yes');
+    }
+
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     }
@@ -140,25 +177,36 @@ class DetalleScreen extends StatelessWidget {
                         icono: Icons.call,
                         texto: "Llamar",
                         color: Colors.blue,
-                        onTap: () => _llamar(orden.telefono ?? ""),
+                        onTap: () => _llamar(orden.telefono ?? "000000000"),
                       ),
                       _BotonAccion(
                         icono: Icons.message_rounded,
                         texto: "WhatsApp",
                         color: Colors.green,
-                        onTap: () => _abrirWhatsApp(orden.telefono ?? ""),
+                        onTap: () =>
+                            _abrirWhatsApp(orden.telefono ?? "000000000"),
                       ),
                       _BotonAccion(
                         icono: Icons.map_rounded,
                         texto: "Maps",
                         color: Colors.red,
-                        onTap: () => _abrirGoogleMaps(orden.coordenadas ?? ""),
+                        // 🔹 Corrección: Usamos orden.coordenadas y orden.direccion
+                        onTap: () => _abrirGoogleMaps(
+                          orden.coordenadas,
+                          orden.direccion ?? "Huancayo",
+                          orden.distrito,
+                        ),
                       ),
                       _BotonAccion(
                         icono: Icons.navigation_rounded,
                         texto: "Waze",
                         color: Colors.lightBlue,
-                        onTap: () => _abrirWaze(orden.coordenadas ?? ""),
+                        // 🔹 Corrección: Usamos orden.coordenadas y orden.direccion
+                        onTap: () => _abrirWaze(
+                          orden.coordenadas,
+                          orden.direccion ?? "Huancayo",
+                          orden.distrito,
+                        ),
                       ),
                     ],
                   ),
@@ -198,6 +246,7 @@ class DetalleScreen extends StatelessWidget {
                         _ItemDato(
                           icono: Icons.location_on_outlined,
                           titulo: "Dirección",
+                          // 🔹 Corrección: Usamos orden.direccion
                           valor:
                               "${orden.direccion ?? 'Sin calle'}, ${orden.distrito}",
                         ),

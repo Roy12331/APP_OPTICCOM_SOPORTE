@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:firebase_messaging/firebase_messaging.dart'; // 🔹 NUEVO: Para obtener el Token del celular
-import 'package:http/http.dart' as http; // 🔹 NUEVO: Para enviar datos a PHP
-import 'dart:convert'; // 🔹 NUEVO: Para convertir los datos a formato JSON
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart'; // 🔹 NUEVO: Para guardar sesión
 
 import '../services/login_service.dart';
 import '../core/app_theme.dart';
@@ -51,10 +52,6 @@ class _LoginScreenState extends State<LoginScreen> {
         try {
           String? token = await FirebaseMessaging.instance.getToken();
           if (token != null && idUser > 0) {
-            // ⚠️ IMPORTANTE: CAMBIA ESTA URL.
-            // Si usas XAMPP/Laragon, pon la IP de tu PC (ej: 192.168.1.25)
-            // Si ya está en la nube, pon tu dominio (ej: https://tudominio.com)
-            // Si creaste la carpeta 'api' directamente, la ruta termina en .php
             final url = Uri.parse(
               'https://opticcomperu.com/api/actualizar_token.php',
             );
@@ -79,16 +76,24 @@ class _LoginScreenState extends State<LoginScreen> {
         // 🔹 FIN DEL BLOQUE FCM
         // =====================================================================
 
-        // 🔹 Leemos el Rol desde la BD
+        // Leemos el Rol desde la BD
         String nombreRol = "Técnico";
         if (idRol == 1) nombreRol = "Administrador";
         if (idRol == 2) nombreRol = "Ventas";
 
+        // 🔹 NUEVO: GUARDAR SESIÓN EN EL TELÉFONO
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('userId', idUser);
+        await prefs.setString('userName', nombreUser);
+        await prefs.setString('userRol', nombreRol);
+
         // Enviamos Nombre, ID y Rol al Home
-        context.go(
-          '/home',
-          extra: {'id': idUser, 'nombre': nombreUser, 'rol': nombreRol},
-        );
+        if (mounted) {
+          context.go(
+            '/home',
+            extra: {'id': idUser, 'nombre': nombreUser, 'rol': nombreRol},
+          );
+        }
       } else {
         // Mostrar error si las credenciales son incorrectas
         ScaffoldMessenger.of(context).showSnackBar(
@@ -104,10 +109,10 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.secondary, // 🔹 Fondo Azul Profundo
+      backgroundColor: AppTheme.secondary, // Fondo Azul Profundo
       body: Column(
         children: [
-          // 🔹 CABECERA AZUL (35% de la pantalla)
+          // CABECERA AZUL (35% de la pantalla)
           SafeArea(
             bottom: false,
             child: Container(
@@ -121,9 +126,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppTheme.primary.withOpacity(
-                        0.2,
-                      ), // Toque naranja translúcido
+                      color: AppTheme.primary.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(15),
                     ),
                     child: const Icon(
@@ -151,14 +154,14 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
 
-          // 🔹 FORMULARIO BLANCO (Resto de la pantalla)
+          // FORMULARIO BLANCO (Resto de la pantalla)
           Expanded(
             child: Container(
               width: double.infinity,
               decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(40), // Bordes superiores curvos
+                  topLeft: Radius.circular(40),
                   topRight: Radius.circular(40),
                 ),
               ),
@@ -181,9 +184,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       "Ingresa tus credenciales para continuar",
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
-
                     const SizedBox(height: 35),
-
                     _inputModerno(
                       controller: _emailCtrl,
                       hint: "Correo Corporativo",
@@ -197,16 +198,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       icon: Icons.lock_outline,
                       isPass: true,
                     ),
-
                     const SizedBox(height: 40),
-
-                    // 🔹 BOTÓN NARANJA RADIANTE
                     CustomButton(
                       text: "INGRESAR",
                       isLoading: _loading,
                       onPressed: _login,
                     ),
-
                     const SizedBox(height: 40),
                     Center(
                       child: Text(
@@ -235,7 +232,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.background, // Gris muy clarito
+        color: AppTheme.background,
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: Colors.grey.shade200),
       ),
@@ -247,12 +244,8 @@ class _LoginScreenState extends State<LoginScreen> {
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: TextStyle(color: Colors.grey.shade500),
-          prefixIcon: Icon(
-            icon,
-            color: AppTheme.primary,
-            size: 22,
-          ), // 🔹 Icono Naranja
-          border: InputBorder.none, // Quitamos la línea de abajo
+          prefixIcon: Icon(icon, color: AppTheme.primary, size: 22),
+          border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             vertical: 20,
             horizontal: 15,

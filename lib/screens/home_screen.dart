@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_messaging/firebase_messaging.dart'; // 🔹 Importación del motor de FCM
 import '../models/orden_model.dart';
 import '../services/orden_service.dart';
-import '../core/app_theme.dart'; // 🔹 Importamos el sistema de diseño
+import '../core/app_theme.dart'; // Importamos el sistema de diseño
 
 class HomeScreen extends StatefulWidget {
-  final Map<String, dynamic> userData; // 🔹 Datos reales de la BD
+  final Map<String, dynamic> userData; // Datos reales de la BD
   const HomeScreen({super.key, required this.userData});
 
   @override
@@ -19,22 +20,38 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _recargar();
+    _escucharNotificaciones(); // 🔹 Arrancamos el "oído" de la app
   }
 
   void _recargar() {
     setState(() {
-      // 🔹 EL MOTOR INTACTO: Llamada real a tu PHP en Hostinger
+      // EL MOTOR INTACTO: Llamada real a tu PHP en Hostinger
       _futureOrdenes = OrdenService.getOrdenes(widget.userData['id']);
+    });
+  }
+
+  // 🔹 NUEVA FUNCIÓN: Escucha a Firebase desde esta pantalla
+  void _escucharNotificaciones() {
+    // CASO A: La app está ABIERTA en pantalla. Llega una orden nueva.
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print("🔔 Orden recibida en Primer Plano. Recargando lista...");
+      _recargar(); // Actualiza la lista mágicamente sin tocar nada
+    });
+
+    // CASO B: La app está MINIMIZADA. El técnico TOCA la alerta superior.
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      print("👆 Notificación tocada. Recargando la vista...");
+      _recargar(); // Recarga para que al entrar vea la nueva orden
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // 🔹 ELIMINAMOS EL TAB CONTROLLER PARA UNA VISTA DIRECTA Y LIMPIA
+    // ELIMINAMOS EL TAB CONTROLLER PARA UNA VISTA DIRECTA Y LIMPIA
     return Scaffold(
       backgroundColor: AppTheme.background, // Fondo gris corporativo
       appBar: AppBar(
-        backgroundColor: AppTheme.secondary, // 🔹 Cabecera Azul Profundo
+        backgroundColor: AppTheme.secondary, // Cabecera Azul Profundo
         elevation: 0,
         toolbarHeight: 80,
         title: Column(
@@ -74,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 🔹 TÍTULO DE SECCIÓN ELEGANTE
+          // TÍTULO DE SECCIÓN ELEGANTE
           const Padding(
             padding: EdgeInsets.fromLTRB(20, 20, 20, 5),
             child: Text(
@@ -100,7 +117,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   return _emptyState();
                 }
 
-                // 🔹 PHP ya nos manda solo las pendientes, así que la mostramos directo
+                // PHP ya nos manda solo las pendientes, así que la mostramos directo
                 final ordenes = snapshot.data!;
                 return _listaOrdenes(ordenes);
               },
@@ -111,7 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 🔹 Estado visual cuando no hay tareas
+  // Estado visual cuando no hay tareas
   Widget _emptyState() {
     return Center(
       child: Column(
@@ -137,7 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 🔹 Lista de Tareas con Diseño Premium
+  // Lista de Tareas con Diseño Premium
   Widget _listaOrdenes(List<OrdenTrabajo> lista) {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
@@ -146,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final orden = lista[index];
         bool esAveria = orden.tipoTrabajo.toLowerCase().contains("averia");
 
-        // 🔹 Lógica de colores corporativos
+        // Lógica de colores corporativos
         Color iconColor = esAveria ? Colors.redAccent : AppTheme.secondary;
         IconData iconData = esAveria
             ? Icons.warning_rounded
@@ -169,10 +186,8 @@ class _HomeScreenState extends State<HomeScreen> {
             color: Colors.transparent,
             child: InkWell(
               borderRadius: BorderRadius.circular(20),
-              onTap: () => context.push(
-                '/detalle',
-                extra: orden,
-              ), // 🔹 Navegación intacta
+              onTap: () =>
+                  context.push('/detalle', extra: orden), // Navegación intacta
               child: Padding(
                 padding: const EdgeInsets.all(18),
                 child: Row(
