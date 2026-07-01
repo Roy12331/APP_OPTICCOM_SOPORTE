@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, compute; // 🔹 NUEVO: importamos 'compute'
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -11,6 +12,12 @@ import '../models/orden_model.dart';
 import '../services/reporte_service.dart';
 import '../core/app_theme.dart';
 import '../widgets/custom_button.dart';
+import 'package:flutter/services.dart'; // 🔹 NUEVO: Para bloquear letras en campos numéricos
+
+// 🔹 NUEVO: Función aislada para procesar Base64 sin trabar el celular
+String _codificarBase64Fondo(List<int> bytes) {
+  return base64Encode(bytes);
+}
 
 class FormularioScreen extends StatefulWidget {
   final OrdenTrabajo orden;
@@ -50,7 +57,6 @@ class _FormularioScreenState extends State<FormularioScreen> {
   bool _enviando = false;
   bool _gpsCargando = false;
 
-  // 🔹 LÓGICA INTACTA (Fotos, GPS, Base64, Envío)
   Future<void> _tomarFoto(bool esFachada) async {
     if (!kIsWeb) {
       var status = await Permission.camera.request();
@@ -64,9 +70,12 @@ class _FormularioScreenState extends State<FormularioScreen> {
       }
     }
     final picker = ImagePicker();
+    // 🔹 MAGIA ANTI-CRASH: Limitamos resolución y peso directamente en el motor nativo
     final XFile? foto = await picker.pickImage(
       source: ImageSource.camera,
-      imageQuality: 50,
+      imageQuality: 70, // Subimos a 70 porque limitaremos el tamaño físico
+      maxWidth: 1280, // 🔹 Evita que la RAM colapse
+      maxHeight: 1280, // 🔹 Evita que la RAM colapse
     );
 
     if (foto != null) {
@@ -116,7 +125,8 @@ class _FormularioScreenState extends State<FormularioScreen> {
   Future<String?> _xfileToBase64(XFile? file) async {
     if (file == null) return null;
     final bytes = await file.readAsBytes();
-    return base64Encode(bytes);
+    // 🔹 MAGIA ANTI-LAG: Enviamos el trabajo de cifrado pesado a otro hilo
+    return await compute(_codificarBase64Fondo, bytes);
   }
 
   void _finalizarOrden() async {
@@ -146,7 +156,9 @@ class _FormularioScreenState extends State<FormularioScreen> {
     String? base64Firma;
     if (_firmaController.isNotEmpty) {
       final firmabytes = await _firmaController.toPngBytes();
-      if (firmabytes != null) base64Firma = base64Encode(firmabytes);
+      if (firmabytes != null) {
+        base64Firma = await compute(_codificarBase64Fondo, firmabytes);
+      }
     }
 
     final datos = {
@@ -182,10 +194,6 @@ class _FormularioScreenState extends State<FormularioScreen> {
           ),
         );
 
-        // 🔹 SOLUCIÓN AL ERROR ROJO:
-        // En lugar de context.go() que enviaba un "1" y rompía el tipo de dato,
-        // usamos pop() dos veces: Una para cerrar el formulario y otra para cerrar el detalle,
-        // devolviendo al técnico limpiamente a la pantalla principal (Home).
         if (context.canPop()) context.pop(); // Cierra el Formulario
         if (context.canPop()) context.pop(); // Cierra la pantalla de Detalle
       } else {
@@ -583,9 +591,14 @@ class _FormularioScreenState extends State<FormularioScreen> {
           const SizedBox(height: 8),
           TextFormField(
             controller: controller,
+            // 🔹 MAGIA 1: Abre el teclado numérico adecuado
             keyboardType: num
                 ? const TextInputType.numberWithOptions(decimal: true)
                 : TextInputType.text,
+            // 🔹 MAGIA 2: Bloquea físicamente las letras. Solo permite números y un punto decimal.
+            inputFormatters: num
+                ? [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))]
+                : [],
             maxLines: lineas,
             style: const TextStyle(fontSize: 15, color: AppTheme.textDark),
             decoration: InputDecoration(
@@ -631,7 +644,6 @@ class _FormularioScreenState extends State<FormularioScreen> {
       spacing: 12,
       runSpacing: 12,
       children: List.generate(8, (index) {
-        // Hasta 8 puertos
         int puerto = index + 1;
         bool seleccionado = _puertoSeleccionado == puerto;
         return GestureDetector(
@@ -683,7 +695,7 @@ class _FormularioScreenState extends State<FormularioScreen> {
             color: AppTheme.primary.withOpacity(0.5),
             width: 1.5,
             style: BorderStyle.solid,
-          ), // Borde Naranja sutil
+          ),
           borderRadius: BorderRadius.circular(15),
           boxShadow: [
             BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 5),
